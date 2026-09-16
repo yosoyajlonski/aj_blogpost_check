@@ -3,7 +3,7 @@ project:
 
 website:
   description: "A blog built with Quarto"
-  site-url: https://github.com/yosoyajlonski/aj_blogpost_check # you must change this appropriately for RSS feeds to work properly
+  site-url: https://yosoyajlonski.github.io/aj_blogpost_check # you must change this appropriately for RSS feeds to work properly
   title: "Predicting a Phenotype from Genotype Data and an Effect Vector"
   navbar:
     right:
