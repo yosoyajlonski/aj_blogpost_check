@@ -10,49 +10,1117 @@
 <atom:link href="https://yosoyajlonski.github.io/aj_blogpost_check/index.xml" rel="self" type="application/rss+xml"/>
 <description>A blog built with Quarto</description>
 <generator>quarto-1.10.18</generator>
-<lastBuildDate>Wed, 16 Sep 2026 05:00:00 GMT</lastBuildDate>
+<lastBuildDate>Thu, 17 Sep 2026 05:00:00 GMT</lastBuildDate>
 <item>
-  <title>Post With Code</title>
-  <dc:creator>Harlow Malloc</dc:creator>
-  <link>https://yosoyajlonski.github.io/aj_blogpost_check/posts/post-with-code/</link>
+  <title>Simulating Phenotype from Genotype</title>
+  <dc:creator>AJ Lonski</dc:creator>
+  <dc:creator>Festus Nyasimi</dc:creator>
+  <link>https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/</link>
   <description><![CDATA[ 
 
 
 
 
 
-<p>This is a post with executable code.</p>
+<section id="learning-objectives" class="level2">
+<h2 class="anchored" data-anchor-id="learning-objectives">Learning objectives</h2>
+<ul>
+<li><p>Build intuition about how to simulate a phenotype, given genotype information and a vector of effect sizes (betas).</p></li>
+<li><p>Demonstrate cases for polygenic (many SNPs) vs.&nbsp;a few causal SNPs driving a phenotype.</p></li>
+<li><p>Learn how to run a GWAS and produce visualizations, like Manhattan plots and QQ plots.</p></li>
+<li><p>Have fun!</p></li>
+</ul>
+</section>
+<section id="part-1-simulating-a-polygenic-trait" class="level2">
+<h2 class="anchored" data-anchor-id="part-1-simulating-a-polygenic-trait">Part 1: Simulating a polygenic trait</h2>
+</section>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<ul>
+<li><p>Download the genotype data from <a href="https://uchicago.app.box.com/s/84de60jj4j9nyhl7nc7lylk4fcq12eka">here</a> and place into proper folder/path of choice.</p></li>
+<li><p>Install and load various packages, set the seed (for reproducibility).</p></li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">install.packages</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"genio"</span>) <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># allows us to read genotype from a PLINK file</span></span>
+<span id="cb1-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">install.packages</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"data.table"</span>)</span>
+<span id="cb1-3"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">install.packages</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Matrix"</span>)</span>
+<span id="cb1-4"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">install.packages</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"dplyr"</span>)</span></code></pre></div></div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># loading installed packages</span></span>
+<span id="cb2-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(genio)</span>
+<span id="cb2-3"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(data.table)</span></code></pre></div></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: package 'data.table' was built under R version 4.3.3</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(Matrix)</span>
+<span id="cb4-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(dplyr)</span></code></pre></div></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'dplyr'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:data.table':
+
+    between, first, last</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:stats':
+
+    filter, lag</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># setting seed for reproducibility of results!</span></span>
+<span id="cb9-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">set.seed</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span></code></pre></div></div>
+</div>
+<section id="reading-in-the-plink-data" class="level3">
+<h3 class="anchored" data-anchor-id="reading-in-the-plink-data">Reading in the PLINK Data</h3>
+<ul>
+<li><p>The PLINK data is composed of a .fam, .bim, and .bed files:</p>
+<ul>
+<li><p>.fam: contains family IDs (FID), individual IDs (IID), paternal ID (PID), maternal ID (MID) Sex (1,2) and phenotype (0,1)</p></li>
+<li><p>.bim: contains chromosome (Chr), SNP (rsID), genetic distance (GD), base-pair position (BPP), reference allele (A1), and alternate allele (A2)</p></li>
+<li><p>.bed: contains the binary version of SNP data in a compact format.</p></li>
+</ul></li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Providing PLINK path to file</span></span>
+<span id="cb10-2"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#NOTE: hapmap3_ch22 contains ALL 3 of the .fam, .bim, and .bed files.</span></span>
+<span id="cb10-3">PLINK_data <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">read_plink</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"/Users/ajlonski/Desktop/hapmap/hapmap3_ch22"</span>)</span></code></pre></div></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Reading: /Users/ajlonski/Desktop/hapmap/hapmap3_ch22.bim</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Reading: /Users/ajlonski/Desktop/hapmap/hapmap3_ch22.fam</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Reading: /Users/ajlonski/Desktop/hapmap/hapmap3_ch22.bed</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Need to transpose to get individuals in rows and SNPs in columns</span></span>
+<span id="cb14-2">X <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">t</span>(PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>X)</span>
+<span id="cb14-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Converting X to matrix format</span></span>
+<span id="cb14-4">X <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.matrix</span>(X)</span></code></pre></div></div>
+</div>
+<p>Sometimes, our X matrix has NA values. When that is the case, we need to address them before downstream steps, or we will get errors!</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Want to impute missing values -- let's do the population mean in this case</span></span>
+<span id="cb15-2">col_means <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">colMeans</span>(X, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">na.rm =</span> <span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">TRUE</span>)</span>
+<span id="cb15-3">na_idx <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">which</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">is.na</span>(X), <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">arr.ind =</span> <span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">TRUE</span>)   <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># row/col indices of every NA</span></span>
+<span id="cb15-4">X[na_idx] <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> col_means[na_idx[, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"col"</span>]]     <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># look up each NA's OWN column's mean by position</span></span></code></pre></div></div>
+</div>
+<p>Now that we’ve addressed the potential NAs issue, let’s inspect X and check for NAs.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># This should sum to 0 if we have no NA values!</span></span>
+<span id="cb16-2">X <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">is.na</span>(.) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sum</span>()</span></code></pre></div></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0</code></pre>
+</div>
+</div>
+<p>Moving on, let’s count the number of individuals and SNPs in our X matrix.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><span class="do" style="color: #5E5E5E;
+background-color: null;
+font-style: italic;">##Count rows in X --&gt; 1397 individuals</span></span>
+<span id="cb18-2">num_individuals <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">nrow</span>(X)</span>
+<span id="cb18-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Count columns in X --&gt; 20649 SNPs in chr22</span></span>
+<span id="cb18-4">num_SNPS <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ncol</span>(X)</span></code></pre></div></div>
+</div>
+<p>Finally, we can actually run our simulation. We start by siulating the vector of beta values that we multiply against our genotype (X) matrix. Following that, we simulate our noise/error term, called epsilon here. Finally, we get the genetic component of the phenotype by matrix multiplying our matrix X and vector of betas together!</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Simulating beta vector with same number of SNPs as genotype information</span></span>
+<span id="cb19-2">simulated_betas <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">matrix</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">rnorm</span>(num_SNPS, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>), num_SNPS,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span>
+<span id="cb19-3"></span>
+<span id="cb19-4"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Let's also check that our simulated betas look approximately normal</span></span>
+<span id="cb19-5"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">hist</span>(simulated_betas, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">breaks =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">50</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">main =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Distribution of Simulated Beta Values"</span>,</span>
+<span id="cb19-6">     <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">xlab =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Effect size"</span>)</span></code></pre></div></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/index_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># simulating epsilon, which is our noise/error term</span></span>
+<span id="cb20-2">epsilon <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">rnorm</span>(num_individuals, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span>
+<span id="cb20-3"></span>
+<span id="cb20-4"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Multiplying X and Beta to get our genetic component of the phenotype</span></span>
+<span id="cb20-5">G <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> X <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%*%</span> simulated_betas</span></code></pre></div></div>
+</div>
+<p>After simulating, we now need to address heritability, or the variation in the phenotype that is explained by the genotype. In this case, we will set heritability to 0.5, meaning that 50% of the phenotypic variance is explained by the genotype. We scale our genetic component G and our noise term epsilon accordingly!</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># setting heritability = 0.5, so 50% of phenotypic variance is explained by the genotype</span></span>
+<span id="cb21-2">h2 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.5</span></span>
+<span id="cb21-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Scaling our genetic component G to given heritability</span></span>
+<span id="cb21-4">G <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale</span>(G) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sqrt</span>(h2)</span>
+<span id="cb21-5"></span>
+<span id="cb21-6"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># scaling epsilon to have variance = 1 - h2, so that the total variance of Y is 1</span></span>
+<span id="cb21-7">epsilon <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale</span>(epsilon) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sqrt</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> h2)</span>
+<span id="cb21-8"></span>
+<span id="cb21-9"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Getting our final phenotype Y from G and epsilon</span></span>
+<span id="cb21-10">Y <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> G <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> epsilon</span></code></pre></div></div>
+</div>
+<p>We can visualize with a QQ-plot to see if our simulated phenotype is approximately normal. A QQ-plot is a way to assess whether the data is approximately normally distributed. If our data is normal, its points should fall along the red line, which is the theoretical quantiles of a normal distribution.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">qqnorm</span>(Y); <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">qqline</span>(Y, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">col =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"red"</span>)</span></code></pre></div></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/index_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Indeed, it does appear to be normal, given that the points follow the theoretical red line closely. Here, each point in the QQ-plot is a paired quantile of our simulated aqnd theoretical phenotype Y, and the red line is the theoretical quantiles of a normal distribution. While we do see some points above/below the red line at the tails of the distribution, this is expected, as we are simulating a polygenic trait with many SNPs contributing to the phenotype. When above the line, it means that the observed quantile is greater than the theoretical quantile, so some individuals have higher phenotype values than a Gaussian model would predict. When below the line, it means that the observed quantile is less than the theoretical quantile, so some individuals have lower phenotype values than a Gaussian model would predict.</p>
+</section>
+<section id="question-what-should-the-varg-vary-be-run-the-code-below-after-answering." class="level3">
+<h3 class="anchored" data-anchor-id="question-what-should-the-varg-vary-be-run-the-code-below-after-answering.">Question: what should the var(G) / var(Y) be? Run the code below after answering.</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">var</span>(G) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">var</span>(Y)</span></code></pre></div></div>
+</div>
+<p>If this value is close to 0.5, it means we have simulated our polygenic trait correctly (yay)!</p>
+</section>
+</section>
+<section id="part-2-simulating-a-trait-with-a-few-causal-snps" class="level2">
+<h2 class="anchored" data-anchor-id="part-2-simulating-a-trait-with-a-few-causal-snps">Part 2: Simulating a trait with a few causal SNPs</h2>
+<p>Now that we have successfully simulated a polygenic trait, we can look at a second scenario where we have a few causal SNPs driving the phenotype. In this case, we will randomly select 10 SNPs to be causal, and set the effect sizes of all other SNPs to 0.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Redefining heritability (h2) here, as good practice</span></span>
+<span id="cb24-2">h2 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.5</span></span>
+<span id="cb24-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Next, we can try simulating with just a few causal SNPs</span></span>
+<span id="cb24-4"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># specifiy number of causal SNPs first</span></span>
+<span id="cb24-5">n_causal <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span></span>
+<span id="cb24-6"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#select indices that have our causal SNPs</span></span>
+<span id="cb24-7">causal_indices <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sample</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span>num_SNPS, n_causal)</span>
+<span id="cb24-8"></span>
+<span id="cb24-9"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#retain effect sizes of only the causal SNPs, set others equal to 0</span></span>
+<span id="cb24-10">betas <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">matrix</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, num_SNPS, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span>
+<span id="cb24-11">betas[causal_indices] <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">rnorm</span>(n_causal, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>) <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># normalizing effect sizes</span></span></code></pre></div></div>
+</div>
+<p>Next, let’s multiply X by beta and scale it so that it has variance equal to our heritability. After that, we simulate epsilon and similarly scale it so that it has variance equal to 1 - heritability.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#multiply X by our betas to get genetic component</span></span>
+<span id="cb25-2">G_few <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> X <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%*%</span> betas</span>
+<span id="cb25-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#scaling genetic component, just like we did in part 1</span></span>
+<span id="cb25-4">G_few <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale</span>(G_few) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sqrt</span>(h2)</span>
+<span id="cb25-5"></span>
+<span id="cb25-6"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># simulating epsilon for our few causal SNPs</span></span>
+<span id="cb25-7">epsilon_few <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">rnorm</span>(num_individuals, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span>
+<span id="cb25-8"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># scaling epsilon to have variance = 1 - h2, so that the total variance of Y is 1</span></span>
+<span id="cb25-9">epsilon_few <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale</span>(epsilon_few) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sqrt</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> h2)</span>
+<span id="cb25-10"></span>
+<span id="cb25-11"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Getting our final phenotype Y from G and epsilon</span></span>
+<span id="cb25-12">Y_few <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> G_few <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> epsilon_few</span></code></pre></div></div>
+</div>
+<p>Let’s make another QQ-plot to see if our simulated phenotype is approximately normal, even with only a few causal SNPs.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">qqnorm</span>(Y_few); <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">qqline</span>(Y_few, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">col =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"red"</span>)</span></code></pre></div></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/index_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>As a final step, let’s check that our heritability is still roughly 0.5, even with only a few causal SNPs.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Checking that heritability is still roughly 0.5</span></span>
+<span id="cb27-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">var</span>(G_few) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">var</span>(Y_few)</span></code></pre></div></div>
+</div>
+</section>
+<section id="part-3-running-a-gwas" class="level2">
+<h2 class="anchored" data-anchor-id="part-3-running-a-gwas">Part 3: Running a GWAS</h2>
+<p>Now that we have run both the polygenic and sparse simulations, let’s do one final thing – run a GWAS! First, we need to install the qqman package, which will allow us to visualize our GWAS results with a Manhattan plot.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">install.packages</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"qqman"</span>)</span></code></pre></div></div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(qqman)</span></code></pre></div></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: package 'qqman' was built under R version 4.3.3</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code></code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>For example usage please run: vignette('qqman')</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code></code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Citation appreciated but not required:</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Turner, (2018). qqman: an R package for visualizing GWAS results using Q-Q and manhattan plots. Journal of Open Source Software, 3(25), 731, https://doi.org/10.21105/joss.00731.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code></code></pre>
+</div>
+</div>
+<p>Next, we can run a GWAS on our simulated phenotype in the polygenic case, and then later, driven by only a few causal SNPs. We will use a linear model to get the p-values for each SNP, and then create a data frame with the results.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><span class="do" style="color: #5E5E5E;
+background-color: null;
+font-style: italic;">## Running a GWAS on our polygenic trait, using a linear model</span></span>
+<span id="cb37-2"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># X is our genotype matrix</span></span>
+<span id="cb37-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># apply() loops over X, iterating over each column (SNP) and running a linear model of Y ~ x, where x is the SNP genotype.</span></span>
+<span id="cb37-4">pvalues_polygenic <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">apply</span>(X, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>, <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">function</span>(x)</span>
+<span id="cb37-5">    <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># we then pull out the p-value for the SNP from the summary of the linear model</span></span>
+<span id="cb37-6">    <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># we take coefficients[2,4], which are the x coefficient (SNP effect) and column 4 is the p-value for that coefficient</span></span>
+<span id="cb37-7">    <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">lm</span>(Y <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> x))<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>coefficients[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>]</span>
+<span id="cb37-8">)</span>
+<span id="cb37-9"></span>
+<span id="cb37-10">gwas_polygenic <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">data.frame</span>(</span>
+<span id="cb37-11">    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">SNP =</span> PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>id,</span>
+<span id="cb37-12">    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">CHR =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.numeric</span>(PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>chr),</span>
+<span id="cb37-13">    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">BP =</span> PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>pos,</span>
+<span id="cb37-14">    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">P =</span> pvalues_polygenic</span>
+<span id="cb37-15">)</span></code></pre></div></div>
+</div>
+<p>We can also make a QQ-plot of the p-values generated from our GWAS. In doing so, we can check our observed -log10(p-values) against the expected -log10(p-values) under the null hypothesis of no association. If our causal SNPs are driving the phenotype, we should see a deviation from the null line at the tail end of the QQ-plot.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">qq</span>(pvalues_polygenic, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">main =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"QQ-plot of polygenic GWAS p-values"</span>)</span></code></pre></div></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/index_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Why does our QQ-plot look like that? It could be for a few different reasons, but is likely due to Linkage Disequilibrium (LD)-based contamination of the data. LD is the non-random association of alleles at different loci, and can cause spurious associations in GWAS if not accounted for.</p>
+<p>We can also create a Manhattan plot to visualize the distribution of GWAS hits across chromosome 22, where the y-axis is the negative log of the p-value for each associated SNP and the x-axis is the base-pair position of each SNP.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb39" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">manhattan</span>(gwas_polygenic, <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#our dataframe we just made</span></span>
+<span id="cb39-2">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">main =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Manhattan Plot of polygenic trait GWAS Results"</span>,</span>
+<span id="cb39-3">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">suggestiveline=</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">log10</span>(<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.05</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> num_SNPS), <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Bonferroni corrected threshold</span></span>
+<span id="cb39-4">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">genomewideline=</span><span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">FALSE</span>)</span></code></pre></div></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/index_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>We can also run this GWAS for the sparse case, where we have a few causal SNPs.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb40" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Running a GWAS on our simulated phenotype with a few causal SNPs, using a linear model</span></span>
+<span id="cb40-2"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># X is our genotype matrix</span></span>
+<span id="cb40-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># apply() loops over X, iterating over each column (SNP) and running a linear model of Y_few ~ x, where x is the SNP genotype.</span></span>
+<span id="cb40-4">pvalues_sparse <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">apply</span>(X, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>, <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">function</span>(x)</span>
+<span id="cb40-5">    <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># we then pull out the p-value for the SNP from the summary of the linear model</span></span>
+<span id="cb40-6">    <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># we take coefficients[2,4], which are the x coefficient (SNP effect) and column 4 is the p-value for that coefficient</span></span>
+<span id="cb40-7">    <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">lm</span>(Y_few <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> x))<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>coefficients[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>]</span>
+<span id="cb40-8">    ) <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># p-values for each SNP!</span></span>
+<span id="cb40-9"></span>
+<span id="cb40-10">gwas_sparse <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">data.frame</span>(</span>
+<span id="cb40-11">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">SNP =</span> PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>id,</span>
+<span id="cb40-12">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">CHR =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.numeric</span>(PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>chr),</span>
+<span id="cb40-13">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">BP =</span> PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>pos,</span>
+<span id="cb40-14">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">P =</span> pvalues_sparse)</span>
+<span id="cb40-15"></span>
+<span id="cb40-16"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Pulling out the rsIDs of causal SNPs</span></span>
+<span id="cb40-17">causal_rsIDs <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>id[causal_indices]</span></code></pre></div></div>
+</div>
+<p>Let’s also make a QQ-plot, like we did before:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb41" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">qq</span>(pvalues_sparse, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">main =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"QQ-plot of sparse GWAS p-values"</span>)</span></code></pre></div></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/index_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>We will also create a Manhattan plot and highlight the causal SNPs in green!</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb42" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">manhattan</span>(gwas_sparse, <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#our dataframe we just made</span></span>
+<span id="cb42-2">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">main =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Manhattan Plot of GWAS Results (causal SNPs highlighted)"</span>,</span>
+<span id="cb42-3">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">highlight =</span> causal_rsIDs, <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#highlighting the "causal" SNPs</span></span>
+<span id="cb42-4">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">suggestiveline=</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">log10</span>(<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.05</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> num_SNPS), <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Bonferroni corrected threshold</span></span>
+<span id="cb42-5">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">genomewideline=</span><span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">FALSE</span>)</span></code></pre></div></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/index_files/figure-html/unnamed-chunk-23-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The blue line on the manhattan plot is the suggestive significance threshold, set at -log_10(1 x 10^-5). It appears that some SNPs are above the threshold, which is expected, since we have causal SNPs driving the phenotype. Given that other SNPs at the same loci also appear to get “pulled up” above the threshold by our signficant SNPs, we can again see this potential LD contamination.</p>
+<p>We can also use simulated genotype data in order to better highlight the causal SNPs driving our phenotype. Let’s quickly explore the simulated genotype data, with 100 individuals and 1000 SNPs.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb43" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1">maf <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.4</span></span>
+<span id="cb43-2">num_individuals <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1397</span></span>
+<span id="cb43-3">num_SNPS <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">20649</span></span>
+<span id="cb43-4"></span>
+<span id="cb43-5"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Simulating beta vector with same number of SNPs as genotype information</span></span>
+<span id="cb43-6">simulated_betas <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">matrix</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">rnorm</span>(num_SNPS, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>), num_SNPS,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span>
+<span id="cb43-7"></span>
+<span id="cb43-8"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># simulating epsilon, which is our noise/error term</span></span>
+<span id="cb43-9">epsilon <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">rnorm</span>(num_individuals, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span>
+<span id="cb43-10"></span>
+<span id="cb43-11"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Generating the genetic data</span></span>
+<span id="cb43-12"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#creating genotype matrix: N individuals x M genetic variants</span></span>
+<span id="cb43-13"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Each entry is 0, 1, or 2 (# of minor alleles)</span></span>
+<span id="cb43-14">X_sim <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">matrix</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">rbinom</span>(num_individuals <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> num_SNPS, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>, maf), num_individuals, num_SNPS)</span>
+<span id="cb43-15"></span>
+<span id="cb43-16">X_sim <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.matrix</span>(X_sim)</span>
+<span id="cb43-17"></span>
+<span id="cb43-18">G_sim <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> X_sim <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%*%</span> simulated_betas</span>
+<span id="cb43-19"></span>
+<span id="cb43-20"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># setting heritability = 0.5, so 50% of phenotypic variance is explained by the genotype</span></span>
+<span id="cb43-21">h2 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.5</span></span>
+<span id="cb43-22"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Scaling our genetic component G to given heritability</span></span>
+<span id="cb43-23">G_sim <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale</span>(G_sim) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sqrt</span>(h2)</span>
+<span id="cb43-24"></span>
+<span id="cb43-25"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># scaling epsilon to have variance = 1 - h2, so that the total variance of Y is 1</span></span>
+<span id="cb43-26">epsilon <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale</span>(epsilon) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sqrt</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> h2)</span>
+<span id="cb43-27"></span>
+<span id="cb43-28"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Getting our final phenotype Y from G and epsilon</span></span>
+<span id="cb43-29">Y_sim <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> G_sim <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> epsilon</span></code></pre></div></div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb44" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1">pvalues_simulated <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">apply</span>(X_sim, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>, <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">function</span>(x)</span>
+<span id="cb44-2">    <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">lm</span>(Y_sim <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> x))<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>coefficients[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>]</span>
+<span id="cb44-3">)</span>
+<span id="cb44-4"></span>
+<span id="cb44-5">gwas_simulated <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">data.frame</span>(</span>
+<span id="cb44-6">    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">SNP =</span> PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>id,</span>
+<span id="cb44-7">    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">CHR =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.numeric</span>(PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>chr),</span>
+<span id="cb44-8">    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">BP =</span> PLINK_data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>bim<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>pos,</span>
+<span id="cb44-9">    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">P =</span> pvalues_simulated</span>
+<span id="cb44-10">)</span>
+<span id="cb44-11"></span>
+<span id="cb44-12"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">manhattan</span>(gwas_simulated,</span>
+<span id="cb44-13">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">main =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Manhattan Plot of GWAS Results (simulated Genotype)"</span>,</span>
+<span id="cb44-14">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">suggestiveline=</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">log10</span>(<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.05</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> num_SNPS), <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#Bonferroni corrected threshold</span></span>
+<span id="cb44-15">          <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">genomewideline=</span><span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">FALSE</span>)</span></code></pre></div></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/index_files/figure-html/unnamed-chunk-25-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb45" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">qq</span>(pvalues_simulated, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">main =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"QQ-Plot of GWAS (simulated genotype)"</span>)</span></code></pre></div></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/index_files/figure-html/unnamed-chunk-26-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Our simulated genotype GWAS looks good, according to the QQ-plot that we made! This now enables us to distinguish the effects of LD in the previous simulation.</p>
+</section>
+<section id="end-of-blog-questions-to-check-knowledge" class="level2">
+<h2 class="anchored" data-anchor-id="end-of-blog-questions-to-check-knowledge">End of blog questions (to check knowledge):</h2>
+<pre><code>-   What is the difference between a polygenic trait and a sparse trait?
+-   What are the steps that go into simulating a phenotype and eventually running a GWAS?
+-   How do we visualize the results of a GWAS? What is a Manhattan plot and what does it tell us?</code></pre>
+</section>
+<section id="end-of-blog-tutorial-review" class="level2">
+<h2 class="anchored" data-anchor-id="end-of-blog-tutorial-review">End of blog tutorial review :</h2>
+<ul>
+<li><p>In this tutorial, we learned how to simulate a phenotype from a genotype.</p>
+<ul>
+<li>Learned this for two different cases: polygenic (many SNPs) and sparse (few SNPs with large effects) cases.</li>
+</ul></li>
+<li><p>We also learned how to run a GWAS on our simulated phenotype and visualize the results with a Manhattan plot.</p></li>
+</ul>
 
 
+</section>
 
  ]]></description>
-  <category>news</category>
-  <category>code</category>
-  <category>analysis</category>
-  <guid>https://yosoyajlonski.github.io/aj_blogpost_check/posts/post-with-code/</guid>
-  <pubDate>Wed, 16 Sep 2026 05:00:00 GMT</pubDate>
-  <media:content url="https://yosoyajlonski.github.io/aj_blogpost_check/posts/post-with-code/image.jpg" medium="image" type="image/jpeg"/>
-</item>
-<item>
-  <title>Welcome To My Blog</title>
-  <dc:creator>Tristan O&#39;Malley</dc:creator>
-  <link>https://yosoyajlonski.github.io/aj_blogpost_check/posts/welcome/</link>
-  <description><![CDATA[ 
-
-
-
-
-
-<p>This is the first post in a Quarto blog. Welcome!</p>
-<p><img src="https://yosoyajlonski.github.io/aj_blogpost_check/posts/welcome/thumbnail.jpg" class="img-fluid"></p>
-<p>Since this post doesn’t specify an explicit <code>image</code>, the first image in the post will be used in the listing page of posts.</p>
-
-
-
- ]]></description>
-  <category>news</category>
-  <guid>https://yosoyajlonski.github.io/aj_blogpost_check/posts/welcome/</guid>
-  <pubDate>Sun, 13 Sep 2026 05:00:00 GMT</pubDate>
+  <category>simulation</category>
+  <category>GWAS</category>
+  <category>genetics</category>
+  <guid>https://yosoyajlonski.github.io/aj_blogpost_check/posts/simulating-phenotype-from-genotype/</guid>
+  <pubDate>Thu, 17 Sep 2026 05:00:00 GMT</pubDate>
 </item>
 </channel>
 </rss>
